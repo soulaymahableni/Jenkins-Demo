@@ -1,47 +1,23 @@
-pipeline {
-    agent any
+node {
+    def mvnHome = tool 'maven-3.9'
+    def dockerImageTag = "devopsexample:${env.BUILD_NUMBER}"
 
-    tools {
-        maven 'maven-3.5.2'
+    stage('Clone Repo') {
+        git branch: 'main', url: 'https://github.com/soulaymahableni/Jenkins-Demo.git'
     }
-
-    environment {
-        registry = "soulaymahableni/demo-jenkins"
+    stage('Build Project') {
+        sh "${mvnHome}/bin/mvn clean package"
     }
-
-    stages {
-        stage('Clone Repo') {
-            steps {
-                git branch: 'main', url: 'https://github.com/soulaymahableni/Jenkins-Demo.git'
-            }
-        }
-
-        stage('Build App') {
-            steps {
-                sh "mvn clean package"
-            }
-        }
-
-        stage('Build image') {
-            steps {
-                sh "docker build -t $registry:$BUILD_NUMBER ."
-            }
-        }
-
-        stage('Deploy Docker container') {
-            steps {
-                sh "docker rm -f demo-jenkins || true"
-                sh "docker run --name demo-jenkins -d -p 2222:2222 $registry:$BUILD_NUMBER"
-            }
-        }
+    stage('Initialize Docker') {
+        def dockerHome = tool 'MyDocker'
+        env.PATH = "${dockerHome}/bin:${env.PATH}"
     }
-
-    post {
-        success {
-            echo 'Pipeline execution successful!'
-        }
-        failure {
-            echo 'Pipeline execution failed.'
-        }
+    stage('Build Docker Image') {
+        sh "docker build -t ${dockerImageTag} ."
+    }
+    stage('Deploy Docker Image') {
+        echo "Docker Image Tag Name: ${dockerImageTag}"
+        sh "docker rm -f devopsexample || true"
+        sh "docker run --name devopsexample -d -p 2222:2222 ${dockerImageTag}"
     }
 }
